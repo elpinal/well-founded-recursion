@@ -1,0 +1,6 @@
+*.ui
+*.uo
+a.out
+/lexer.sml
+/grammar.sml
+/grammar.sig

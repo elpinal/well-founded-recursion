@@ -1,0 +1,16 @@
+(* Default implementations which are defined mutually. *)
+(* Also an example of (a dynamic aspect of) functor fixpoint. *)
+
+let f =
+  (λP. λf : box{P}((int -> int) * (int -> int)).
+    ( λ{P} n : int. snd (unbox f) n + 2
+    , λ{P} n : int. fst (unbox f) n - 2
+    )
+  )
+in
+  rec (P @ p : (int -> int) * (int -> int).
+    let q = f {P} p in
+    ( fst q
+    , λn : int. n - 1
+    )
+  )

@@ -1,0 +1,3 @@
+rec (F @ f : int -> int.
+  λ{F} x : int. x * unbox f (x - 1)
+)

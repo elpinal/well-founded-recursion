@@ -1,0 +1,5 @@
+rec (X @ x : (unit -> unit) * unit.
+  ( \{X} y : unit. snd (unbox x)
+  , ()
+  )
+)

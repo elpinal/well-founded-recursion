@@ -1,0 +1,114 @@
+%{
+(* From mosml/examples/lexyacc/Parser.grm. *)
+
+open Surface
+
+fun prim2 s x y =
+let open Term in
+  App(App(Prim(s), x), y)
+end
+
+val lor  : int * int -> int = op *
+val land : int * int -> int = op +
+val lneg = fn b => if b = 0 then 1 else 0
+%}
+
+%token <int> NUM
+%token <Surface.var> VAR
+%token <string> NAME
+%token PLUS MINUS STAR DIV MOD
+%token EQ NE LT LE GE GT
+%token AMPERSAND BAR
+%token LAMBDA DOT SEMI COMMA DASHARROW COLON
+%token CASE ELSE END IF LETREC OF PACK THEN
+%token UNIT BOX UNBOX FST SND REC COMP DELAY FORCE
+%token REF GET SET CONT CALLCC THROW LET IN
+%token INT
+%token FORALL AT
+%token LBRACE RBRACE LPAR RPAR
+%token EOF
+%token JUNK
+
+%left AMPERSAND			/* lowest precedence */
+%left BAR
+%nonassoc EQ NE LT LE GE GT
+%left PLUS MINUS
+%left STAR DIV MOD        	/* highest precedence  */
+
+%start Main
+%type <Surface.Term.t> Main
+%type <Type.t> Type TypeProd TypeApp TypeAtom
+%type <support> Support Names
+%type <Term.t> Term App Atom
+
+%%
+
+Main:
+    Term EOF { $1 }
+;
+Type:
+    TypeProd                        { $1 }
+  | FORALL NAME DOT Type            { Type.Forall($2, $4) }
+  | TypeProd DASHARROW Support Type { Type.Arrow($1, $3, $4) }
+  | TypeProd DASHARROW         Type { Type.Arrow($1, [], $3) }
+;
+TypeProd:
+    TypeApp              { $1 }
+  | TypeApp STAR TypeApp { Type.Prod($1, $3) }
+;
+TypeApp:
+    TypeAtom              { $1 }
+  | BOX Support TypeAtom  { Type.Box($2, $3) }
+  | COMP         TypeAtom { Type.Comp([], $2) }
+  | COMP Support TypeAtom { Type.Comp($2, $3) }
+  | REF TypeAtom          { Type.Ref $2 }
+  | CONT TypeAtom         { Type.Cont $2 }
+;
+TypeAtom:
+    LPAR Type RPAR { $2 }
+  | UNIT           { Type.Unit }
+  | INT            { Type.Base "int" }
+;
+Names:
+               { [] }
+  | NAME Names { $1 :: $2 }
+;
+Support:
+  LBRACE Names RBRACE { $2 }
+;
+Term:
+    App                                           { $1 }
+  | LAMBDA         VAR COLON Type DOT Term        { Term.Abs([], $2, $4, $6) }
+  | LAMBDA Support VAR COLON Type DOT Term        { Term.Abs($2, $3, $5, $7) }
+  | LAMBDA NAME DOT Term                          { Term.NAbs($2, $4) }
+  | REC LPAR NAME AT VAR COLON Type DOT Term RPAR { Term.Rec($3, $5, $7, $9) }
+  | CALLCC LPAR VAR DOT Term RPAR COLON Type      { Term.Callcc($8, $3, $5) }
+  | THROW LPAR Term COMMA Term RPAR COLON Type    { Term.Throw($8, $3, $5) }
+  | LET VAR EQ Term IN Term                       { Term.Let($2, NONE, $4, $6) }
+  | LET VAR COLON Type EQ Term IN Term            { Term.Let($2, SOME $4, $6, $8) }
+  | Term STAR Term                                { prim2 "*" $1 $3 }
+  | Term PLUS Term                                { prim2 "+" $1 $3 }
+  | Term MINUS Term                               { prim2 "-" $1 $3 }
+;
+App:
+    Atom               { $1 }
+  | App Atom           { Term.App($1, $2) }
+  | App Support        { Term.SApp($1, $2) }
+  | FST Atom           { Term.Fst $2 }
+  | SND Atom           { Term.Snd $2 }
+  | BOX Support Atom   { Term.Box($2, $3) }
+  | UNBOX Atom         { Term.Unbox $2 }
+  | DELAY         Atom { Term.Delay([], $2) }
+  | DELAY Support Atom { Term.Delay($2, $3) }
+  | FORCE Atom         { Term.Force $2 }
+  | REF Atom           { Term.Ref $2 }
+  | GET Atom           { Term.Get $2 }
+  | SET Atom Atom      { Term.Set($2, $3) }
+;
+Atom:
+    LPAR Term RPAR            { $2 }
+  | VAR                       { Term.Var $1 }
+  | LPAR RPAR                 { Term.Unit }
+  | LPAR Term COMMA Term RPAR { Term.Pair($2, $4) }
+  | NUM                       { Term.Lit(Syntax.Term.Num($1)) }
+;
